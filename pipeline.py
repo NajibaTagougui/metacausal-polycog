@@ -152,11 +152,20 @@ def oof_cate(X, T, y, w=None, k=5, seed=0, learner="CausalForest", modifier_idx=
 
 
 def blp_test(tau_hat, nuis, T, w=None):
-    """Best Linear Predictor: psi ~ b1 + b2 (tau_hat - mean). b2>0 => real heterogeneity."""
+    """Best Linear Predictor: psi ~ b1 + b2 (tau_hat - mean).
+
+    Heterogeneity test is ONE-SIDED, H0: b2 <= 0 vs H1: b2 > 0 (Chernozhukov et al.).
+    A negative b2 means the predicted ranking reverses out of sample (noise fitting),
+    which is evidence against detectable heterogeneity, not for it.
+    Calibration test: H0: b2 = 1 (two-sided)."""
+    from scipy.stats import norm
     Z = sm.add_constant(tau_hat - tau_hat.mean())
     fit = sm.WLS(nuis["psi"], Z, weights=np.ones_like(T) if w is None else w).fit(cov_type="HC3")
-    return dict(beta1=fit.params[0], beta1_se=fit.bse[0], beta2=fit.params[1],
-                beta2_se=fit.bse[1], beta2_p=fit.pvalues[1])
+    b2, se2 = fit.params[1], fit.bse[1]
+    return dict(beta1=fit.params[0], beta1_se=fit.bse[0], beta2=b2, beta2_se=se2,
+                beta2_p=float(norm.sf(b2 / se2)),                       # one-sided, b2 > 0
+                beta2_p_twosided=float(fit.pvalues[1]),
+                beta2_eq1_p=float(2 * norm.sf(abs(b2 - 1) / se2)))      # calibration
 
 
 def gates(tau_hat, nuis, n_groups=5, w=None):

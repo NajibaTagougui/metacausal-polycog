@@ -1,0 +1,70 @@
+== Variable audit
+  DEMO    rows=  9965  all found
+  CFQ    rows=  1834  all found
+  PHPYPA    rows=  2648  all found
+  BMX    rows=  9282  all found
+  DIQ    rows=  9493  all found
+  BPQ    rows=  6044  all found
+  SMQ    rows=  4880  all found
+  MCQ    rows=  9493  all found
+  PAQ    rows=  9188  all found
+  ALQ    rows=  4444  all found
+  DRXTOT    rows=  9282  all found
+  DEMO_B  rows= 11039  all found
+  CFQ_B  rows=  1872  all found
+  PHPYPA_B  rows=  2901  all found
+  BMX_B  rows= 10477  all found
+  DIQ_B  rows= 10470  all found
+  BPQ_B  rows=  6634  all found
+  SMQ_B  rows=  5411  all found
+  MCQ_B  rows= 10470  all found
+  PAQ_B  rows= 10094  all found
+  ALQ_B  rows=  5027  all found
+  DRXTOT_B  rows= 10477  all found
+
+== Eligibility flow
+  NHANES 1999-2002 participants: 21004
+  age >= 60:                     3706
+  + DSST score:                  2975
+  + urinary phytoestrogens:      878  (by cycle {2001: 464, 1999: 414})
+
+== Food matching: 98.4% of records, 97.5% of grams matched
+  with food records: 844; reliable recall and kcal 500-5000: 832
+
+== Missingness in eligible sample (n=878)
+  T               missing   46 (5%)
+  T_nontea        missing   46 (5%)
+  edu_college     missing    2 (0%)
+  edu_lt_hs       missing    2 (0%)
+  pir             missing   97 (11%)
+  bmi             missing   39 (4%)
+  smoker          missing    1 (0%)
+  hypertension    missing    2 (0%)
+  cvd             missing    9 (1%)
+  phys_active     missing    2 (0%)
+  kcal            missing   46 (5%)
+  alcohol         missing   32 (4%)
+  caffeine_mg     missing   46 (5%)
+  EQP             missing  303 (35%)
+  ENLH            missing    5 (1%)
+
+  EQP status: {'producer': 483, 'equol_below_LOD_ambiguous': 230, 'non_producer': 92, 'equol_missing': 68, 'daidzein_below_LOD': 5}
+
+== Complete cases: with EQP 448; without requiring EQP 685
+  [with EQP] T=1: 144, T_nontea=1: 141, tea drinkers: 118, EQP=1/0: 379/69, ENLH=1: 178
+  [without EQP] T=1: 226, T_nontea=1: 224, tea drinkers: 184, EQP=1/0: 379/69, ENLH=1: 268
+
+  EQP x ENLH (complete cases with EQP):
+ENLH  0.0  1.0  All
+EQP                
+0.0    44   25   69
+1.0   226  153  379
+All   270  178  448
+
+== Exposure contrasts (complete cases without EQP)
+         n  tea_any  caffeine_mg   DSST  edu_college    age
+  T                                                        
+  0.0  459     0.03       134.04  41.75         0.14  70.49
+  1.0  226     0.75       156.72  45.03         0.20  71.60
+  crude DSST difference T=1 vs 0: 3.3
+  crude DSST difference T_nontea=1 vs 0: 2.7  (tea drinkers in T_nontea=1: 27%)
