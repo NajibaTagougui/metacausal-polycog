@@ -1,0 +1,57 @@
+{
+  "n": 685,
+  "treated_frac": 0.32992700729927005,
+  "covariates": [
+    "age",
+    "female",
+    "race_black",
+    "race_hisp",
+    "race_other",
+    "edu_college",
+    "edu_lt_hs",
+    "pir",
+    "bmi",
+    "smoker",
+    "diabetes",
+    "hypertension",
+    "cvd",
+    "phys_active",
+    "kcal",
+    "alcohol",
+    "ENLH",
+    "caffeine_mg"
+  ],
+  "modifiers": [
+    "ENLH",
+    "age",
+    "female",
+    "diabetes",
+    "bmi",
+    "edu_college"
+  ],
+  "ATE_AIPW": [
+    0.02032064411511906,
+    1.519043745026171
+  ],
+  "overlap_e_range": [
+    0.0534561238250134,
+    0.6323960047941742
+  ],
+  "BLP": {
+    "beta1": 0.020320644115119767,
+    "beta1_se": 1.5121412741426694,
+    "beta2": -5.420336998026186,
+    "beta2_se": 1.5114583734583067,
+    "beta2_p": 0.9998322107605817,
+    "beta2_p_twosided": 0.00033557847883663875,
+    "beta2_eq1_p": 2.159028501188014e-05
+  },
+  "mean_abs_shap": {
+    "ENLH": 0.064,
+    "age": 0.057,
+    "female": 0.186,
+    "diabetes": 0.0,
+    "bmi": 0.077,
+    "edu_college": 0.0
+  }
+}

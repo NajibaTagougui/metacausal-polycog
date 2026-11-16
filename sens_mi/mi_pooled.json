@@ -1,0 +1,56 @@
+{
+  "n": 878,
+  "m": 20,
+  "covariates": [
+    "age",
+    "female",
+    "race_black",
+    "race_hisp",
+    "race_other",
+    "edu_college",
+    "edu_lt_hs",
+    "pir",
+    "bmi",
+    "smoker",
+    "diabetes",
+    "hypertension",
+    "cvd",
+    "phys_active",
+    "kcal",
+    "alcohol",
+    "EQP",
+    "ENLH",
+    "caffeine_mg"
+  ],
+  "ATE": {
+    "estimate": -0.10436640439748146,
+    "se": 1.4472169870983635,
+    "df": 2320.9527050967195,
+    "p": 0.9425164093802634,
+    "frac_missing_info": 0.09047813813977476
+  },
+  "H1_EQP1_minus_EQP0": {
+    "estimate": -2.864310377295527,
+    "se": 4.753727747910211,
+    "df": 3685.4048078805004,
+    "p": 0.5468519204204766,
+    "frac_missing_info": 0.07180161313247625
+  },
+  "H2_both_minus_neither": {
+    "estimate": -10.18205928711722,
+    "se": 6.396086928960431,
+    "df": 8437.736596773833,
+    "p": 0.1114401202569563,
+    "frac_missing_info": 0.047453015807443225
+  },
+  "BLP_beta2_onesided": {
+    "estimate": -4.291105914448388,
+    "se": 2.046895409768488,
+    "df": 278.1841215808739,
+    "p": 0.9815249088603211,
+    "frac_missing_info": 0.2613428553775324
+  },
+  "mean_n_EQP1": 785.3,
+  "mean_n_EQP0": 92.7,
+  "mean_n_neither": 57.35
+}
