@@ -25,14 +25,16 @@ plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.rig
                      "savefig.dpi": 300, "figure.facecolor": "white"})
 
 
-def main(df, out, seed=0):
+def main(df, out, seed=0, extra_covs=(), drop_covs=()):
     out = Path(out); out.mkdir(exist_ok=True)
-    covs = [c for c in COVARIATES if c in df.columns]
+    covs = [c for c in list(COVARIATES) + list(extra_covs) if c in df.columns and c not in drop_covs]
+    df = df.dropna(subset=covs + ["T", "y"]).reset_index(drop=True)
+    print(f"n={len(df)} | covariates ({len(covs)}): {covs}")
     mods = [c for c in MODIFIERS if c in covs]
     midx = [covs.index(c) for c in mods]
     X, T, y = df[covs].values.astype(float), df["T"].values.astype(int), df["y"].values
     w = df["w"].values if "w" in df.columns else None
-    res = {"n": int(len(df)), "treated_frac": float(T.mean())}
+    res = {"n": int(len(df)), "treated_frac": float(T.mean()), "covariates": covs, "modifiers": mods}
 
     # 1. average effect (doubly robust)
     nuis = P.crossfit_nuisances(X, T, y, w, seed=seed)
@@ -52,14 +54,23 @@ def main(df, out, seed=0):
 
     # 4. metabotype subgroup effects (pre-specified), AIPW within strata
     sub = []
-    for eqp in (0, 1):
+    for eqp in ((0, 1) if "EQP" in covs and "ENLH" in covs else ()):
         for enl in (0, 1):
             m = ((df.EQP == eqp) & (df.ENLH == enl)).values
             e_, s_ = P.aipw_ate(nuis["psi"][m], None if w is None else w[m])
             row = dict(EQP=eqp, ENLH=enl, n=int(m.sum()), effect=e_, se=s_)
             if "tau_true" in df: row["true"] = df.tau_true[m].mean()
             sub.append(row)
-    sub = pd.DataFrame(sub); sub.to_csv(out / "metabotype_effects.csv", index=False)
+    sub = pd.DataFrame(sub, columns=["EQP", "ENLH", "n", "effect", "se"])
+    if len(sub) == 4:  # H1 / H2 contrasts: Wald tests of the difference
+        e = sub.set_index(["EQP", "ENLH"])
+        p_ = {k: (e.loc[k, "effect"], e.loc[k, "se"]) for k in e.index}
+        m1 = (df.EQP == 1).values; m0 = (df.EQP == 0).values
+        a1, s1 = P.aipw_ate(nuis["psi"][m1], None if w is None else w[m1])
+        a0, s0 = P.aipw_ate(nuis["psi"][m0], None if w is None else w[m0])
+        res["H1_EQP1_minus_EQP0"] = [a1 - a0, float(np.hypot(s1, s0))]
+        res["H2_both_minus_neither"] = [p_[(1, 1)][0] - p_[(0, 0)][0], float(np.hypot(p_[(1, 1)][1], p_[(0, 0)][1]))]
+    sub.to_csv(out / "metabotype_effects.csv", index=False)
 
     # 5. policy tree
     pt = P.policy_tree(X[:, midx], T, y, mods, depth=2, seed=seed, W=X)
@@ -82,7 +93,8 @@ def main(df, out, seed=0):
     res["mean_abs_shap"] = dict(zip(mods, np.abs(vals.values).mean(0).round(3).tolist()))
 
     # ---- figures
-    fig, ax = plt.subplots(1, 2, figsize=(10, 3.8))
+    fig, ax = plt.subplots(1, 2 if len(sub) else 1, figsize=(10 if len(sub) else 5.5, 3.8), squeeze=False)
+    ax = ax[0]
     ax[0].errorbar(g.group, g.gate, yerr=1.96 * g.se, fmt="o", color=BLUE, capsize=3, ms=7,
                    label="Estimated group effect (95% CI)")
     ax[0].axhline(ate, color=GREY, ls="--", lw=1.5, label=f"Average effect = {ate:.2f}")
@@ -91,15 +103,15 @@ def main(df, out, seed=0):
         ax[0].plot(g.group, tg, "D", color=ORANGE, ms=6, label="True group effect")
     ax[0].set_xticks(g.group); ax[0].set_xlabel("Quintile of predicted benefit"); ax[0].set_ylabel("Effect on DSST (points)")
     ax[0].set_title("A. Sorted group effects (GATES)", loc="left"); ax[0].legend(frameon=False, fontsize=8)
-    lab = [f"EQP{a}/ENL{b}" for a, b in zip(sub.EQP, sub.ENLH)]
-    xs = np.arange(len(sub))
-    ax[1].bar(xs, sub.effect, color=[GREY, AQUA, BLUE, ORANGE], width=0.6, edgecolor="white", lw=2)
-    ax[1].errorbar(xs, sub.effect, yerr=1.96 * sub.se, fmt="none", ecolor="#0b0b0b", capsize=3)
-    if "true" in sub: ax[1].plot(xs, sub.true, "D", color="#0b0b0b", ms=5, label="True effect")
-    ax[1].set_xticks(xs, ["Non-producer", "ENL-high only", "Equol only", "Both"])
-    ax[1].set_ylabel("Effect on DSST (points)")
-    ax[1].set_title("B. Effect by microbial metabotype", loc="left")
-    if "true" in sub: ax[1].legend(frameon=False, fontsize=8)
+    if len(sub):
+        xs = np.arange(len(sub))
+        ax[1].bar(xs, sub.effect, color=[GREY, AQUA, BLUE, ORANGE], width=0.6, edgecolor="white", lw=2)
+        ax[1].errorbar(xs, sub.effect, yerr=1.96 * sub.se, fmt="none", ecolor="#0b0b0b", capsize=3)
+        if "true" in sub: ax[1].plot(xs, sub.true, "D", color="#0b0b0b", ms=5, label="True effect")
+        ax[1].set_xticks(xs, ["Non-producer", "ENL-high only", "Equol only", "Both"])
+        ax[1].set_ylabel("Effect on DSST (points)")
+        ax[1].set_title("B. Effect by microbial metabotype", loc="left")
+        if "true" in sub: ax[1].legend(frameon=False, fontsize=8)
     plt.tight_layout(); plt.savefig(out / "fig_gates_metabotype.png"); plt.close()
 
     res = json.loads(json.dumps(res, default=float))
@@ -112,8 +124,13 @@ if __name__ == "__main__":
     ap.add_argument("--data"); ap.add_argument("--demo", action="store_true")
     ap.add_argument("--n", type=int, default=2600); ap.add_argument("--out", default="analysis_demo")
     ap.add_argument("--no_weights", action="store_true", help="sensitivity: ignore survey weights")
+    ap.add_argument("--treat", default="T", help="exposure column, e.g. T_nontea")
+    ap.add_argument("--extra_covs", nargs="*", default=[], help="covariates beyond COVARIATES, e.g. caffeine_mg")
+    ap.add_argument("--drop_covs", nargs="*", default=[], help="covariates to leave out, e.g. EQP")
     a = ap.parse_args()
     df = simulate(a.n, seed=2026) if a.demo else pd.read_csv(a.data)
     if a.no_weights and "w" in df.columns:
         df = df.drop(columns="w")
-    main(df, a.out)
+    if a.treat != "T":
+        df["T"] = df[a.treat]
+    main(df, a.out, extra_covs=a.extra_covs, drop_covs=a.drop_covs)
