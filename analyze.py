@@ -4,7 +4,7 @@ Full single-dataset analysis (the paper's main pipeline).
   python analyze.py --data nhanes_studyA.csv  # real data (needs columns below)
 Outputs tables + figures into --out.
 """
-import argparse, json, warnings
+import argparse, json, time, warnings
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -25,7 +25,9 @@ plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.rig
                      "savefig.dpi": 300, "figure.facecolor": "white"})
 
 
-def main(df, out, seed=0, extra_covs=(), drop_covs=()):
+def main(df, out, seed=0, extra_covs=(), drop_covs=(), shap_n=600):
+    t0 = time.time()
+    step = lambda m: print(f"[{time.time() - t0:6.0f}s] {m}", flush=True)
     out = Path(out); out.mkdir(exist_ok=True)
     covs = [c for c in list(COVARIATES) + list(extra_covs) if c in df.columns and c not in drop_covs]
     df = df.dropna(subset=covs + ["T", "y"]).reset_index(drop=True)
@@ -42,16 +44,19 @@ def main(df, out, seed=0, extra_covs=(), drop_covs=()):
     res["ATE_AIPW"] = [ate, se]
     res["overlap_e_range"] = [float(nuis["e"].min()), float(nuis["e"].max())]
 
+    step("average effect done")
     # 2. CATE: knowledge-guided causal forest (primary) + unrestricted CF (sensitivity)
     tau_oof = P.oof_cate(X, T, y, w, seed=seed, learner="KG-CausalForest", modifier_idx=midx)
     fit = P.fit_learners(X, T, y, w, seed=seed, which=["KG-CausalForest"], modifier_idx=midx)
     kg = fit["_kgcf_model"]
 
+    step("KG causal forest done")
     # 3. heterogeneity inference
     blp = P.blp_test(tau_oof, nuis, T, w); res["BLP"] = blp
     g, groups = P.gates(tau_oof, nuis, 5, w); g.to_csv(out / "gates.csv", index=False)
     cl = P.clan(df[covs], groups); cl.to_csv(out / "clan.csv")
 
+    step("BLP/GATES/CLAN done")
     # 4. metabotype subgroup effects (pre-specified), AIPW within strata
     sub = []
     for eqp in ((0, 1) if "EQP" in covs and "ENLH" in covs else ()):
@@ -72,6 +77,7 @@ def main(df, out, seed=0, extra_covs=(), drop_covs=()):
         res["H2_both_minus_neither"] = [p_[(1, 1)][0] - p_[(0, 0)][0], float(np.hypot(p_[(1, 1)][1], p_[(0, 0)][1]))]
     sub.to_csv(out / "metabotype_effects.csv", index=False)
 
+    step("metabotype strata done")
     # 5. policy tree
     pt = P.policy_tree(X[:, midx], T, y, mods, depth=2, seed=seed, W=X)
     try:
@@ -81,8 +87,10 @@ def main(df, out, seed=0, extra_covs=(), drop_covs=()):
     except Exception as ex:
         print("policy tree plot skipped:", ex)
 
+    step("policy tree done")
+    json.dump(json.loads(json.dumps(res, default=float)), open(out / "results.json", "w"), indent=2)
     # 6. SHAP on CATE
-    rs = np.random.default_rng(seed).choice(len(X), min(600, len(X)), replace=False)
+    rs = np.random.default_rng(seed).choice(len(X), min(shap_n, len(X)), replace=False)
     sv = kg.shap_values(X[rs][:, midx], feature_names=mods, background_samples=100)
     key1 = list(sv.keys())[0]; key2 = list(sv[key1].keys())[0]
     vals = sv[key1][key2]
@@ -92,6 +100,7 @@ def main(df, out, seed=0, extra_covs=(), drop_covs=()):
     plt.tight_layout(); plt.savefig(out / "fig_shap_cate.png"); plt.close()
     res["mean_abs_shap"] = dict(zip(mods, np.abs(vals.values).mean(0).round(3).tolist()))
 
+    step("SHAP done")
     # ---- figures
     fig, ax = plt.subplots(1, 2 if len(sub) else 1, figsize=(10 if len(sub) else 5.5, 3.8), squeeze=False)
     ax = ax[0]
@@ -127,10 +136,11 @@ if __name__ == "__main__":
     ap.add_argument("--treat", default="T", help="exposure column, e.g. T_nontea")
     ap.add_argument("--extra_covs", nargs="*", default=[], help="covariates beyond COVARIATES, e.g. caffeine_mg")
     ap.add_argument("--drop_covs", nargs="*", default=[], help="covariates to leave out, e.g. EQP")
+    ap.add_argument("--shap_n", type=int, default=600, help="people sampled for SHAP (cost grows with this)")
     a = ap.parse_args()
     df = simulate(a.n, seed=2026) if a.demo else pd.read_csv(a.data)
     if a.no_weights and "w" in df.columns:
         df = df.drop(columns="w")
     if a.treat != "T":
         df["T"] = df[a.treat]
-    main(df, a.out, extra_covs=a.extra_covs, drop_covs=a.drop_covs)
+    main(df, a.out, extra_covs=a.extra_covs, drop_covs=a.drop_covs, shap_n=a.shap_n)
