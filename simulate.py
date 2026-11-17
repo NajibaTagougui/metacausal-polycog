@@ -29,7 +29,7 @@ def _sigmoid(z):
     return 1.0 / (1.0 + np.exp(-z))
 
 
-def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additive"):
+def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additive", label="true"):
     rng = np.random.default_rng(seed)
     age = rng.uniform(60, 85, n)
     female = rng.binomial(1, 0.53, n)
@@ -80,6 +80,27 @@ def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additi
     y = mu0 + tau * T + rng.normal(0, 13, n)
     y = np.clip(y, 0, 105)
 
+    # Observed equol label. Draws below happen after y, so label="true" reproduces
+    # the original data exactly.
+    #   true       : the label is the latent trait
+    #   nondiff    : 10% random (non-differential) misclassification
+    #   confounded : label from a spot-urine ratio; daidzein depends on SES, not on T
+    #   post       : label from a spot-urine ratio; daidzein rises with T (soy is part
+    #                of the exposure), so the label is a descendant of treatment
+    # Spot-urine model, calibrated to NHANES 2005-2010: background equol ~ 1.5 ng/mL
+    # in everyone; producers convert ~30% of daidzein; label = log10(equol/daidzein) > -1.75.
+    EQP_true = EQP
+    a_T, b_ses = (1.0, 0.3) if label == "post" else (0.0, 0.6)
+    log_daz = np.log(30) + a_T * (T - T.mean()) + b_ses * edu_z + rng.normal(0, 1.5, n)
+    daz = np.exp(log_daz)
+    equol = np.exp(np.log(1.5) + rng.normal(0, 0.5, n)) + EQP_true * 0.3 * daz * np.exp(rng.normal(0, 0.5, n))
+    if label == "nondiff":
+        EQP = np.where(rng.random(n) < 0.10, 1 - EQP_true, EQP_true)
+    elif label in ("confounded", "post"):
+        EQP = (np.log10(equol / daz) > -1.75).astype(int)
+    elif label != "true":
+        raise ValueError(label)
+
     df = pd.DataFrame(dict(age=age, female=female, race_black=race_black,
                            race_hisp=race_hisp, race_other=race_other,
                            edu_college=edu_college, edu_lt_hs=edu_lt_hs, pir=pir,
@@ -87,7 +108,8 @@ def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additi
                            hypertension=hypertension, cvd=cvd,
                            phys_active=phys_active, kcal=kcal, alcohol=alcohol,
                            phq9=phq9, EQP=EQP, ENLH=ENLH, T=T, y=y,
-                           tau_true=tau, ps_true=ps, mu0_true=mu0))
+                           tau_true=tau, ps_true=ps, mu0_true=mu0,
+                           EQP_true=EQP_true, log_daidzein=log_daz))
     return df
 
 
