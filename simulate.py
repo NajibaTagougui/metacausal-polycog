@@ -29,7 +29,8 @@ def _sigmoid(z):
     return 1.0 / (1.0 + np.exp(-z))
 
 
-def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additive", label="true"):
+def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additive", label="true",
+             trait_baseline=0.0):
     rng = np.random.default_rng(seed)
     age = rng.uniform(60, 85, n)
     female = rng.binomial(1, 0.53, n)
@@ -77,6 +78,7 @@ def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additi
         tau = effect_scale * (0.3 + 7.0 * EQP * (bmi < 30) * (age < 77)
                               + 4.0 * ENLH * phys_active
                               + 2.0 * EQP * ENLH * (diabetes == 0))
+    mu0 = mu0 + trait_baseline * EQP        # trait effect on untreated outcome (Proposition 3)
     y = mu0 + tau * T + rng.normal(0, 13, n)
     y = np.clip(y, 0, 105)
 

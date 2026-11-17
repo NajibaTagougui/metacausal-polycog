@@ -32,9 +32,10 @@ MOD_IDX = [COVARIATES.index(c) for c in MODIFIERS]
 LEARNERS = ["KG-CausalForest", "CausalForest", "OLS-interaction", "S-learner", "X-learner"]
 
 
-def one_run(n, seed, label):
-    tr = simulate(n, seed=seed, label=label)
-    te = simulate(5000, seed=10_000 + seed, label=label)
+def one_run(n, seed, label, effect_scale=1.0, trait_baseline=0.0):
+    kw = dict(label=label, effect_scale=effect_scale, trait_baseline=trait_baseline)
+    tr = simulate(n, seed=seed, **kw)
+    te = simulate(5000, seed=10_000 + seed, **kw)
     X, T, y = tr[COVARIATES].values, tr["T"].values, tr["y"].values
     out = dict(label=label, n=n, seed=seed, label_prev=tr.EQP.mean(),
                label_agreement=(tr.EQP == tr.EQP_true).mean())
@@ -54,7 +55,7 @@ def one_run(n, seed, label):
     for name in LEARNERS:
         th = np.ravel(models[name](te[COVARIATES].values))
         out[f"pehe_{name}"] = float(np.sqrt(np.mean((th - te.tau_true.values) ** 2)))
-        out[f"rho_{name}"] = float(spearmanr(th, te.tau_true.values).correlation)
+        out[f"rho_{name}"] = float(spearmanr(th, te.tau_true.values).correlation) if te.tau_true.std() > 0 else np.nan
 
     tau_oof = P.oof_cate(X, T, y, seed=seed, learner="KG-CausalForest", modifier_idx=MOD_IDX)
     b = P.blp_test(tau_oof, nuis, T)
@@ -72,13 +73,15 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=2600)
     ap.add_argument("--labels", nargs="*", default=["true", "nondiff", "confounded", "post"])
     ap.add_argument("--out", default="results_label")
+    ap.add_argument("--effect_scale", type=float, default=1.0, help="0 = no treatment effect (null arm)")
+    ap.add_argument("--trait_baseline", type=float, default=0.0, help="trait effect on the untreated outcome")
     a = ap.parse_args()
     Path(a.out).mkdir(exist_ok=True)
     rows = []
     for label in a.labels:
         for s in range(a.reps):
             t0 = time.time()
-            rows.append(one_run(a.n, s, label))
+            rows.append(one_run(a.n, s, label, a.effect_scale, a.trait_baseline))
             print(f"{label} rep {s} done in {time.time() - t0:.0f}s", flush=True)
             pd.DataFrame(rows).to_csv(Path(a.out) / "label_raw.csv", index=False)
     R = pd.DataFrame(rows)
