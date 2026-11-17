@@ -133,6 +133,7 @@ if __name__ == "__main__":
     ap.add_argument("--data"); ap.add_argument("--demo", action="store_true")
     ap.add_argument("--n", type=int, default=2600); ap.add_argument("--out", default="analysis_demo")
     ap.add_argument("--no_weights", action="store_true", help="sensitivity: ignore survey weights")
+    ap.add_argument("--outcome", default="y", help="outcome column, e.g. animal_fluency")
     ap.add_argument("--treat", default="T", help="exposure column, e.g. T_nontea")
     ap.add_argument("--extra_covs", nargs="*", default=[], help="covariates beyond COVARIATES, e.g. caffeine_mg")
     ap.add_argument("--drop_covs", nargs="*", default=[], help="covariates to leave out, e.g. EQP")
@@ -141,6 +142,8 @@ if __name__ == "__main__":
     df = simulate(a.n, seed=2026) if a.demo else pd.read_csv(a.data)
     if a.no_weights and "w" in df.columns:
         df = df.drop(columns="w")
+    if a.outcome != "y":
+        df["y"] = df[a.outcome]
     if a.treat != "T":
         df["T"] = df[a.treat]
     main(df, a.out, extra_covs=a.extra_covs, drop_covs=a.drop_covs, shap_n=a.shap_n)

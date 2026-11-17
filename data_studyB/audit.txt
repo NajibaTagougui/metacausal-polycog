@@ -1,0 +1,44 @@
+== Eligibility and variables
+  NHANES 2011-2014 participants: 19931
+  age >= 60:                     3632
+  + DSST score:                  3014
+  + reliable day-1 recall, 500-5,000 kcal: 2743
+  ... of whom with a reliable day-2 recall: 2510
+
+== Food matching: 99.2% of records, 99.5% of grams (92.8% from 2017-18 values)
+
+== two-day exposure: eligible 2510, complete cases 2253
+  edu_college   missing    2 (0%)
+  edu_lt_hs     missing    2 (0%)
+  pir           missing  188 (7%)
+  bmi           missing   27 (1%)
+  smoker        missing    1 (0%)
+  diabetes      missing    2 (0%)
+  hypertension  missing    3 (0%)
+  cvd           missing   10 (0%)
+  phys_active   missing    2 (0%)
+  alcohol       missing   20 (1%)
+  phq9          missing   12 (0%)
+          n  tea_any  caffeine_mg   DSST  edu_college
+  T                                                  
+  0.0  1499     0.10       134.52  45.95         0.21
+  1.0   754     0.88       164.03  50.29         0.33
+  crude DSST difference T=1 vs 0: 4.3; tea share of flavonoid mg: 71.0%; zero isoflavones: 32%
+
+== day-1 exposure: eligible 2743, complete cases 2452
+  edu_college   missing    2 (0%)
+  edu_lt_hs     missing    2 (0%)
+  pir           missing  210 (8%)
+  bmi           missing   34 (1%)
+  smoker        missing    1 (0%)
+  diabetes      missing    2 (0%)
+  hypertension  missing    5 (0%)
+  cvd           missing   11 (0%)
+  phys_active   missing    2 (0%)
+  alcohol       missing   22 (1%)
+  phq9          missing   14 (1%)
+          n  tea_any  caffeine_mg   DSST  edu_college
+  T                                                  
+  0.0  1627     0.03       140.06  44.96         0.19
+  1.0   825     0.73       168.35  50.02         0.33
+  crude DSST difference T=1 vs 0: 5.1; tea share of flavonoid mg: 72.0%; zero isoflavones: 52%
