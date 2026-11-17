@@ -71,6 +71,7 @@ if __name__ == "__main__":
             print(f"n={n} rep={s} done in {time.time()-t0:.1f}s", flush=True)
             pd.DataFrame(allrows).to_csv(f"{a.out}/benchmark_raw.csv", index=False)
     df = pd.DataFrame(allrows)
+    df["ate_cover"] = df["ate_cover"].map({True: 1.0, False: 0.0})   # bool/NaN object column broke the mean
     summ = df.groupby(["n", "learner"]).agg(["mean", "std"]).drop(columns="seed")
     summ.to_csv(f"{a.out}/benchmark_summary.csv")
     print(summ.round(3).to_string())
