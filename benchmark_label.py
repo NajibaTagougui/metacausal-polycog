@@ -81,13 +81,14 @@ if __name__ == "__main__":
     ap.add_argument("--labels", nargs="*", default=["true", "nondiff", "confounded", "post"])
     ap.add_argument("--out", default="results_label")
     ap.add_argument("--effect_scale", type=float, default=1.0, help="0 = no treatment effect (null arm)")
+    ap.add_argument("--start", type=int, default=0, help="first replicate seed (to finish an interrupted run)")
     ap.add_argument("--learners", nargs="*", default=None, help="only CATE accuracy for these learners")
     ap.add_argument("--trait_baseline", type=float, default=0.0, help="trait effect on the untreated outcome")
     a = ap.parse_args()
     Path(a.out).mkdir(exist_ok=True)
     rows = []
     for label in a.labels:
-        for s in range(a.reps):
+        for s in range(a.start, a.reps):
             t0 = time.time()
             rows.append(one_run(a.n, s, label, a.effect_scale, a.trait_baseline, a.learners))
             print(f"{label} rep {s} done in {time.time() - t0:.0f}s", flush=True)
