@@ -42,13 +42,19 @@ ap.add_argument("--reps", type=int, default=500)
 ap.add_argument("--sizes", type=int, nargs="*", default=[600, 1000, 1500, 2600])
 ap.add_argument("--deltas", type=float, nargs="*", default=[1.5, 3.0])
 ap.add_argument("--out", default="results_studyC")
+ap.add_argument("--sd", type=float, default=8.0, help="residual SD of the 2-year DSST change")
+ap.add_argument("--p_eqp", type=float, default=0.30, help="population producer prevalence")
+ap.add_argument("--acc", type=float, default=0.95, help="soy-challenge sensitivity = specificity")
+ap.add_argument("--classifications", nargs="*", default=["spontaneous", "challenge"])
+ap.add_argument("--exposures", nargs="*", default=["single_recall", "repeated", "randomised"])
+ap.add_argument("--enrichments", nargs="*", default=["none", "balanced"])
 a = ap.parse_args()
 
 
 def simulate(n, delta, classification, exposure, enrichment, rng):
     ses = rng.normal(0, 1, n)
     age = rng.uniform(60, 85, n)
-    p_eqp = 0.5 if enrichment == "balanced" else 0.30
+    p_eqp = 0.5 if enrichment == "balanced" else a.p_eqp
     eqp = rng.binomial(1, p_eqp, n)
     enlh = rng.binomial(1, 0.40, n)
     if exposure == "randomised":
@@ -60,10 +66,10 @@ def simulate(n, delta, classification, exposure, enrichment, rng):
         z_obs = r * z + np.sqrt(1 - r ** 2) * rng.normal(0, 1, n)
         T_obs = (z_obs > np.quantile(z_obs, 2 / 3)).astype(int)
     tau = delta * (eqp + 0.6 * enlh + 0.4 * eqp * enlh)
-    y = -0.15 * (age - 70) + 1.5 * ses + tau * T + rng.normal(0, 8, n)
+    y = -0.15 * (age - 70) + 1.5 * ses + tau * T + rng.normal(0, a.sd, n)
 
     if classification == "challenge":
-        flip = rng.random(n) > 0.95
+        flip = rng.random(n) > a.acc
         eqp_obs = np.where(flip, 1 - eqp, eqp).astype(float)
     else:
         soy = rng.random(n) < 0.25
@@ -105,14 +111,13 @@ def analyse(y, T, E, L, ses, age):
 
 
 rows = []
-grid = list(itertools.product(a.sizes, a.deltas, ["spontaneous", "challenge"],
-                              ["single_recall", "repeated", "randomised"], ["none", "balanced"]))
+grid = list(itertools.product(a.sizes, a.deltas, a.classifications, a.exposures, a.enrichments))
 for i, (n, d, cl, ex, en) in enumerate(grid):
     rng = np.random.default_rng(1000 + i)
     res = [analyse(*simulate(n, d, cl, ex, en, rng)) for _ in range(a.reps)]
     z1, z2, nn = map(np.array, zip(*res))
     crit = norm.ppf(0.975)
-    rows.append(dict(n_recruited=n, delta=d, classification=cl, exposure=ex, enrichment=en,
+    rows.append(dict(sd=a.sd, p_eqp=a.p_eqp, acc=a.acc, n_recruited=n, delta=d, classification=cl, exposure=ex, enrichment=en,
                      power_H1=np.mean(np.abs(z1) > crit),
                      power_H2=np.nanmean(np.abs(z2) > crit) if np.isfinite(z2).any() else np.nan,
                      mean_n_neither=nn.mean()))
