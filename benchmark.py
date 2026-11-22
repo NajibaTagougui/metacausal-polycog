@@ -15,11 +15,24 @@ MODIFIERS = ["EQP", "ENLH", "age", "female", "diabetes", "bmi", "edu_college", "
 MOD_IDX = [COVARIATES.index(c) for c in MODIFIERS]
 
 
-def one_run(n, seed, scenario="additive"):
+def one_run(n, seed, scenario="additive", only=None):
     tr = simulate(n, seed=seed, scenario=scenario)
     te = simulate(5000, seed=10_000 + seed, scenario=scenario)            # large held-out set for PEHE
     X, T, y = tr[COVARIATES].values, tr["T"].values, tr["y"].values
     rows = []
+    if only:   # just the named learners (used to add baselines without re-running the rest)
+        models = P.fit_learners(X, T, y, seed=seed, which=only, modifier_idx=MOD_IDX)
+        draws = models.pop("_bcf_draws", None)
+        for k in [k for k in models if k.startswith("_")]:
+            models.pop(k)
+        for name, f in models.items():
+            m = P.cate_metrics(f(te[COVARIATES].values), te.tau_true.values)
+            if name == "BCF":
+                d = draws(te[COVARIATES].values)
+                lo, hi = np.percentile(d, [2.5, 97.5], axis=1)
+                m["ci_coverage"] = float(np.mean((te.tau_true.values >= lo) & (te.tau_true.values <= hi)))
+            rows.append(dict(learner=name, n=n, seed=seed, **m))
+        return rows
     # conventional analysis: adjusted OLS ATE (what most nutrition papers report)
     ols = sm.OLS(y, sm.add_constant(np.column_stack([T, X]))).fit(cov_type="HC3")
     nuis = P.crossfit_nuisances(X, T, y, seed=seed)
@@ -56,6 +69,7 @@ if __name__ == "__main__":
     ap.add_argument("--sizes", type=int, nargs="+", default=[600, 2600])
     ap.add_argument("--out", default="results")
     ap.add_argument("--scenario", default="additive")
+    ap.add_argument("--only", nargs="*", default=None, help="run only these learners, e.g. BCF R-learner")
     ap.add_argument("--drop_modifier", default=None,
                     help="misspecified KG-CF: leave this true modifier out of the list")
     a = ap.parse_args()
@@ -67,11 +81,12 @@ if __name__ == "__main__":
     for n in a.sizes:
         for s in range(a.reps):
             t0 = time.time()
-            allrows += one_run(n, s, a.scenario)
+            allrows += one_run(n, s, a.scenario, a.only)
             print(f"n={n} rep={s} done in {time.time()-t0:.1f}s", flush=True)
             pd.DataFrame(allrows).to_csv(f"{a.out}/benchmark_raw.csv", index=False)
     df = pd.DataFrame(allrows)
-    df["ate_cover"] = df["ate_cover"].map({True: 1.0, False: 0.0})   # bool/NaN object column broke the mean
+    if "ate_cover" in df:
+        df["ate_cover"] = df["ate_cover"].map({True: 1.0, False: 0.0})   # bool/NaN object column broke the mean
     summ = df.groupby(["n", "learner"]).agg(["mean", "std"]).drop(columns="seed")
     summ.to_csv(f"{a.out}/benchmark_summary.csv")
     print(summ.round(3).to_string())

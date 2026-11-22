@@ -22,7 +22,7 @@ from sklearn.model_selection import KFold
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
-from econml.dml import CausalForestDML, LinearDML
+from econml.dml import CausalForestDML, LinearDML, NonParamDML
 from econml.dr import DRLearner
 from econml.metalearners import SLearner, TLearner, XLearner
 from econml.policy import DRPolicyTree
@@ -128,6 +128,32 @@ def fit_learners(X, T, y, w=None, seed=0, which=None, modifier_idx=None):
         m.fit(y, T, X=X[:, idx], W=X, sample_weight=w)
         out["KG-CausalForest"] = lambda Xn, m=m, idx=idx: m.effect(Xn[:, idx])
         out["_kgcf_model"] = m
+    if "R-learner" in which:
+        # Nie & Wager R-learner: cross-fitted residuals, flexible final stage
+        m = NonParamDML(model_y=reg(seed), model_t=clf(seed), discrete_treatment=True,
+                        model_final=RandomForestRegressor(300, min_samples_leaf=30, random_state=seed),
+                        cv=5, random_state=seed)
+        m.fit(y, T, X=X, sample_weight=w)
+        out["R-learner"] = m.effect
+    if "BCF" in which:
+        # Bayesian causal forest (Hahn, Murray & Carvalho 2020) via stochtree, with a
+        # gradient-boosted propensity score supplied as in the original paper
+        from stochtree import BCFModel
+        ps_model = clf(seed).fit(X, T)
+        ps = np.clip(ps_model.predict_proba(X)[:, 1], 0.03, 0.97)
+        m = BCFModel()
+        m.sample(X_train=X, Z_train=T.astype(float), y_train=y, propensity_train=ps,
+                 observation_weights=None if w is None else w / np.mean(w),
+                 num_gfr=10, num_burnin=0, num_mcmc=200,
+                 general_params={"random_seed": seed})
+
+        def bcf_effect(Xn, m=m, ps_model=ps_model):
+            p = np.clip(ps_model.predict_proba(Xn)[:, 1], 0.03, 0.97)
+            tau = m.predict(Xn, np.ones(len(Xn)), propensity=p, terms="cate")
+            return np.asarray(tau).reshape(len(Xn), -1)                 # posterior draws
+
+        out["BCF"] = lambda Xn, f=bcf_effect: f(Xn).mean(axis=1)        # posterior mean
+        out["_bcf_draws"] = bcf_effect
     return out
 
 
