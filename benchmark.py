@@ -69,6 +69,7 @@ if __name__ == "__main__":
     ap.add_argument("--sizes", type=int, nargs="+", default=[600, 2600])
     ap.add_argument("--out", default="results")
     ap.add_argument("--scenario", default="additive")
+    ap.add_argument("--start", type=int, default=0, help="first replicate seed (to extend an earlier run)")
     ap.add_argument("--only", nargs="*", default=None, help="run only these learners, e.g. BCF R-learner")
     ap.add_argument("--drop_modifier", default=None,
                     help="misspecified KG-CF: leave this true modifier out of the list")
@@ -79,7 +80,7 @@ if __name__ == "__main__":
     Path(a.out).mkdir(exist_ok=True)
     allrows = []
     for n in a.sizes:
-        for s in range(a.reps):
+        for s in range(a.start, a.reps):
             t0 = time.time()
             allrows += one_run(n, s, a.scenario, a.only)
             print(f"n={n} rep={s} done in {time.time()-t0:.1f}s", flush=True)
