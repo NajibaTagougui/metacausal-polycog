@@ -15,7 +15,7 @@ Tests (alpha = 0.05):
     spline    likelihood-ratio test of a 4-df natural cubic spline against the null model
     deciles   likelihood-ratio test of 9 decile indicators against the null model
 """
-import argparse
+import argparse, zlib
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -57,7 +57,7 @@ def lr(y, X1):
 rows = []
 for name, kind, orr in SCEN:
     for n in a.sizes:
-        rng = np.random.default_rng(hash((name, n)) % 2**32)
+        rng = np.random.default_rng(zlib.crc32(f"{name}|{n}".encode()))   # reproducible across runs
         rej = np.zeros(3)
         for _ in range(a.reps):
             y, z = draw(n, kind, orr, rng)
