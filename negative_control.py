@@ -8,7 +8,7 @@ same way in every cycle; decayed or filled teeth are permanent teeth present (2)
 coronal-caries code Z. The missing-tooth codes in the caries field differ between
 1999-2002 (R) and 2011-2014 (P), so they are not used. Older adults lose teeth mostly to
 caries and periodontal disease, so all missing teeth are counted.
-Adults with a complete dental exam only. Same covariates, weights, cross-fitted AIPW and
+Adults with a complete or partial dental exam (both record tooth counts and caries codes) and at least 20 teeth assessed. Same covariates, weights, cross-fitted AIPW and
 design-based SEs as the main analyses (design_variance.py).
 
 Caveat: high flavonoid intake is mostly tea, and tea contains fluoride, so the main
@@ -33,7 +33,7 @@ TEETH = [f"{i:02d}" for i in list(range(2, 16)) + list(range(18, 32))]
 
 def dmft(f, prefix, status_col):
     d = pd.read_sas(Path(a.xpt) / f"{f}.xpt", format="xport")
-    d = d[d[status_col] == 1].copy()
+    d = d[d[status_col].isin([1, 2])].copy()   # complete or partial exam; tooth codes present in both
     codes = pd.DataFrame({t: d[f"{prefix}{t}CTC"].str.decode("ascii").fillna("") for t in TEETH})
     tc = pd.DataFrame({t: d[f"{prefix}{t}TC"] for t in TEETH})
     # missing and root fragments from the tooth-count field (coded the same in every cycle);
