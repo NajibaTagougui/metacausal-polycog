@@ -103,6 +103,37 @@ for model, adj, sub in [("unadjusted", False, C), ("adjusted", True, C), ("ident
     rows.append(dict(cycle="pooled", model=model, **fit(sub, adj, True)))
     for cyc, d in sub.groupby("cycle"):
         rows.append(dict(cycle=cyc, model=model, **fit(d, adj, False)))
+# Nonlinear version: 4-df natural spline in log10 daidzein, joint design-based Wald test
+from patsy import dmatrix
+def fit_spline(df, pooled):
+    cols = ["RIDAGEYR", "female", "race_mexam", "race_ohisp", "race_nhblack", "race_other", "log_cr"]
+    d = df.dropna(subset=cols + ["label", "log_daz"])
+    S = dmatrix("cr(x, df=4) - 1", {"x": d.log_daz.values}, return_type="dataframe")
+    S.columns = [f"s{i}" for i in range(S.shape[1])]; S.index = d.index
+    X = d[cols].join(S.iloc[:, 1:])
+    if pooled:
+        X = X.join(pd.get_dummies(d.cycle, drop_first=True, dtype=float))
+    X = sm.add_constant(X)
+    w = d.w / (d.cycle.nunique() if pooled else 1); w = w / w.mean()
+    res = sm.GLM(d.label, X, family=sm.families.Binomial(), var_weights=w).fit(
+        cov_type="cluster", cov_kwds={"groups": pd.factorize(d.cluster)[0]})
+    names = [c for c in X.columns if c.startswith("s")]
+    from scipy.stats import chi2
+    b = res.params[names].values
+    V = res.cov_params().loc[names, names].values
+    stat = float(b @ np.linalg.pinv(V) @ b)
+    return dict(n=len(d), n_psu=d.cluster.nunique(), OR_per_10x=np.nan, CI_low=np.nan, CI_high=np.nan,
+                z=stat, p=float(chi2.sf(stat, len(names))))
+rows.append(dict(cycle="pooled", model="adjusted, spline (chi2, 3 df)", **fit_spline(C, True)))
+for cyc, d in C.groupby("cycle"):
+    try:   # 1999-2002 can show complete separation (low deciles 100% producers): MLE diverges
+        r = fit_spline(d, False)
+        if not np.isfinite(r["z"]):
+            raise ValueError
+    except Exception:
+        r = dict(n=len(d), n_psu=d.cluster.nunique(), OR_per_10x=np.nan, CI_low=np.nan, CI_high=np.nan,
+                 z=np.nan, p=np.nan)
+    rows.append(dict(cycle=cyc, model="adjusted, spline (chi2, 3 df)", **r))
 R = pd.DataFrame(rows)
 R.to_csv(out / "trend_tests.csv", index=False)
 

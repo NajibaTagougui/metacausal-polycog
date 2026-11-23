@@ -30,7 +30,7 @@ ap.add_argument("--out", default="results_diagnostic")
 a = ap.parse_args()
 out = Path(a.out); out.mkdir(exist_ok=True)
 
-SCEN = [(f"linear OR={o}", "linear", o) for o in (1.0, 0.8, 0.67, 0.5, 0.25, 0.05)] + \
+SCEN = [(f"linear OR={o}", "linear", o) for o in (1.0, 0.9, 0.8, 0.75, 0.67, 0.5, 0.25, 0.05)] + \
        [("U-shaped", "u", None), ("valid label, trait tied to intake", "tied", None)]
 
 
