@@ -111,7 +111,7 @@ def simulate(n=2600, seed=0, effect_scale=1.0, confounding=1.0, scenario="additi
                            phys_active=phys_active, kcal=kcal, alcohol=alcohol,
                            phq9=phq9, EQP=EQP, ENLH=ENLH, T=T, y=y,
                            tau_true=tau, ps_true=ps, mu0_true=mu0,
-                           EQP_true=EQP_true, log_daidzein=log_daz))
+                           EQP_true=EQP_true, log_daidzein=log_daz, log_equol=np.log(equol)))
     return df
 
 

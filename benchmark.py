@@ -71,11 +71,12 @@ if __name__ == "__main__":
     ap.add_argument("--scenario", default="additive")
     ap.add_argument("--start", type=int, default=0, help="first replicate seed (to extend an earlier run)")
     ap.add_argument("--only", nargs="*", default=None, help="run only these learners, e.g. BCF R-learner")
-    ap.add_argument("--drop_modifier", default=None,
+    ap.add_argument("--drop_modifier", nargs="*", default=None,
                     help="misspecified KG-CF: leave this true modifier out of the list")
     a = ap.parse_args()
     if a.drop_modifier:
-        MODIFIERS.remove(a.drop_modifier)
+        for m in a.drop_modifier:
+            MODIFIERS.remove(m)
         MOD_IDX[:] = [COVARIATES.index(c) for c in MODIFIERS]
     Path(a.out).mkdir(exist_ok=True)
     allrows = []
